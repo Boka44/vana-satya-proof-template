@@ -1,0 +1,31 @@
+{
+    "user_hash": "abc123hash",
+    "healthDataId": "hdp_12345",
+    "research_opt_in": true,
+    "profile": {
+        "nickname": "JohnD",
+        "age_range": "30-35",
+        "ethnicity": "Asian",
+        "location": "US-CA",
+        "is_pregnant": false
+    },
+    "disease_states": [
+        {
+            "condition_name": "Migraine",
+            "is_self_diagnosed": false,
+            "diagnosis_method": "Doctor",
+            "treatments": "Sumatriptan",
+            "subtype": "Chronic migraine",
+            "first_symptom_date": "25-30",
+            "wants_future_studies": true
+        }
+    ],
+    "medications": [
+        {
+            "med_name": "Sumatriptan",
+            "verified": true,
+            "related_condition": "Migraine"
+        }
+    ],
+    "timestamp": "2024-03-15T08:00:00Z"
+} 

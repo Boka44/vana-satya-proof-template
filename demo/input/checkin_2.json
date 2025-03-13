@@ -1,0 +1,10 @@
+{
+    "user_hash": "abc123hash",
+    "is_pregnant": false,
+    "timestamp": "2024-03-16T09:00:00Z",
+    "mood": "great",
+    "health_comment": "No symptoms today",
+    "doctor_visit": false,
+    "medication_update": false,
+    "diagnosis_update": false
+} 

@@ -1,7 +1,8 @@
 import json
 import logging
 import os
-from typing import Dict, Any
+from datetime import datetime
+from typing import Dict, Any, List
 
 import requests
 
@@ -14,53 +15,213 @@ class Proof:
         self.proof_response = ProofResponse(dlp_id=config['dlp_id'])
 
     def generate(self) -> ProofResponse:
-        """Generate proofs for all input files."""
+        """Generate proofs for either health profile or daily check-in."""
         logging.info("Starting proof generation")
 
-        # Iterate through files and calculate data validity
-        account_email = None
-        total_score = 0
+        # Load the input file
+        input_files = os.listdir(self.config['input_dir'])
+        if not input_files:
+            logging.error("No input file found")
+            self.proof_response.valid = False
+            return self.proof_response
 
-        for input_filename in os.listdir(self.config['input_dir']):
-            input_file = os.path.join(self.config['input_dir'], input_filename)
-            if os.path.splitext(input_file)[1].lower() == '.json':
-                with open(input_file, 'r') as f:
-                    input_data = json.load(f)
+        input_file = os.path.join(self.config['input_dir'], input_files[0])
+        with open(input_file, 'r') as f:
+            data = json.load(f)
 
-                    if input_filename == 'account.json':
-                        account_email = input_data.get('email', None)
-                        continue
+        # Determine data type and process accordingly
+        if 'healthDataId' in data:  # Health Profile
+            return self._process_health_profile(data)
+        elif 'mood' in data:  # Daily Check-in
+            return self._process_daily_checkin(data)
+        else:
+            logging.error("Unknown data type")
+            self.proof_response.valid = False
+            return self.proof_response
 
-                    elif input_filename == 'activity.json':
-                        total_score = sum(item['score'] for item in input_data)
-                        continue
+    def _process_health_profile(self, health_data: Dict) -> ProofResponse:
+        """Process health profile data."""
+        # Calculate quality based on profile completeness
+        quality_score = self._calculate_profile_quality(health_data)
+        
+        # Calculate ownership score
+        ownership_score = self._verify_health_profile_ownership(health_data)
+        
+        # Set proof scores
+        self.proof_response.quality = quality_score
+        self.proof_response.ownership = ownership_score
+        self.proof_response.authenticity = 1.0  # Base authenticity for profile
+        self.proof_response.uniqueness = self._calculate_profile_uniqueness(health_data)
 
-        email_matches = self.config['user_email'] == account_email
-        score_threshold = fetch_random_number()
+        # Calculate overall score
+        self.proof_response.score = (
+            0.4 * self.proof_response.quality +
+            0.4 * self.proof_response.ownership +
+            0.2 * self.proof_response.uniqueness
+        )
 
-        # Calculate proof-of-contribution scores: https://docs.vana.org/vana/core-concepts/key-elements/proof-of-contribution/example-implementation
-        self.proof_response.ownership = 1.0 if email_matches else 0.0  # Does the data belong to the user? Or is it fraudulent?
-        self.proof_response.quality = max(0, min(total_score / score_threshold, 1.0))  # How high quality is the data?
-        self.proof_response.authenticity = 0  # How authentic is the data is (ie: not tampered with)? (Not implemented here)
-        self.proof_response.uniqueness = 0  # How unique is the data relative to other datasets? (Not implemented here)
+        # Determine validity
+        self.proof_response.valid = (
+            self.proof_response.ownership >= 0.8 and  # Must have strong ownership proof
+            self.proof_response.quality >= 0.5        # Minimum quality threshold
+        )
 
-        # Calculate overall score and validity
-        self.proof_response.score = 0.6 * self.proof_response.quality + 0.4 * self.proof_response.ownership
-        self.proof_response.valid = email_matches and total_score >= score_threshold
-
-        # Additional (public) properties to include in the proof about the data
+        # Add metadata
         self.proof_response.attributes = {
-            'total_score': total_score,
-            'score_threshold': score_threshold,
-            'email_verified': email_matches,
-        }
-
-        # Additional metadata about the proof, written onchain
-        self.proof_response.metadata = {
-            'dlp_id': self.config['dlp_id'],
+            'data_type': 'health_profile',
+            'profile_completeness': quality_score,
+            'has_disease_states': len(health_data.get('disease_states', [])) > 0,
+            'has_medications': len(health_data.get('medications', [])) > 0,
+            'research_opted_in': health_data.get('research_opt_in', False)
         }
 
         return self.proof_response
+
+    def _process_daily_checkin(self, checkin_data: Dict) -> ProofResponse:
+        """Process daily check-in data."""
+        # Calculate quality based on check-in completeness
+        quality_score = self._calculate_checkin_quality(checkin_data)
+        
+        # Calculate ownership score
+        ownership_score = self._verify_checkin_ownership(checkin_data)
+
+        # Set proof scores
+        self.proof_response.quality = quality_score
+        self.proof_response.ownership = ownership_score
+        self.proof_response.authenticity = self._calculate_checkin_authenticity(checkin_data)
+        self.proof_response.uniqueness = 1.0  # Each check-in is unique by timestamp
+
+        # Calculate overall score
+        self.proof_response.score = (
+            0.5 * self.proof_response.quality +
+            0.3 * self.proof_response.ownership +
+            0.2 * self.proof_response.authenticity
+        )
+
+        # Determine validity
+        self.proof_response.valid = (
+            self.proof_response.ownership >= 0.8 and  # Must have strong ownership proof
+            self.proof_response.quality >= 0.5        # Minimum quality threshold
+        )
+
+        # Add metadata
+        self.proof_response.attributes = {
+            'data_type': 'daily_checkin',
+            'checkin_completeness': quality_score,
+            'has_health_comment': bool(checkin_data.get('health_comment')),
+            'has_updates': any([
+                checkin_data.get('doctor_visit'),
+                checkin_data.get('medication_update'),
+                checkin_data.get('diagnosis_update')
+            ])
+        }
+
+        return self.proof_response
+
+    def _calculate_profile_quality(self, health_data: Dict) -> float:
+        """Calculate quality score for health profile."""
+        required_fields = {'nickname', 'age_range', 'ethnicity', 'location'}
+        profile = health_data.get('profile', {})
+        
+        # Basic profile completeness
+        filled_fields = sum(1 for field in required_fields if profile.get(field))
+        score = filled_fields / len(required_fields)
+
+        # Bonus for additional data
+        if health_data.get('disease_states'):
+            score += 0.2
+        if health_data.get('medications'):
+            score += 0.2
+
+        return min(1.0, score)
+
+    def _calculate_checkin_quality(self, checkin: Dict) -> float:
+        """Calculate quality score for daily check-in."""
+        required_fields = {
+            'mood', 'health_comment', 'doctor_visit',
+            'medication_update', 'diagnosis_update'
+        }
+        
+        # Calculate completeness
+        filled_fields = sum(1 for field in required_fields if checkin.get(field) is not None)
+        score = filled_fields / len(required_fields)
+
+        # Bonus for detailed health comment
+        if checkin.get('health_comment', '').strip():
+            score += 0.2
+
+        return min(1.0, score)
+
+    def _verify_health_profile_ownership(self, health_data: Dict) -> float:
+        """Verify ownership of health profile."""
+        score = 0.0
+        
+        if not health_data.get('user_hash'):
+            return score
+        
+        score += 0.4  # Base score for having user_hash
+
+        # Additional verification factors
+        if health_data.get('healthDataId'):
+            score += 0.2
+        
+        profile = health_data.get('profile', {})
+        if all(profile.get(field) for field in ['nickname', 'age_range', 'location']):
+            score += 0.2
+        
+        if health_data.get('research_opt_in') is not None:
+            score += 0.2
+            
+        return min(1.0, score)
+
+    def _verify_checkin_ownership(self, checkin: Dict) -> float:
+        """Verify ownership of daily check-in."""
+        score = 0.0
+        
+        if not checkin.get('user_hash'):
+            return score
+        
+        score += 0.6  # Base score for having user_hash
+
+        # Additional verification factors
+        if checkin.get('timestamp'):
+            score += 0.2
+        
+        if checkin.get('mood'):
+            score += 0.2
+            
+        return min(1.0, score)
+
+    def _calculate_checkin_authenticity(self, checkin: Dict) -> float:
+        """Calculate authenticity score for check-in."""
+        score = 1.0
+
+        try:
+            # Verify timestamp is reasonable (not in future, not too old)
+            check_time = datetime.fromisoformat(checkin.get('timestamp').replace('Z', '+00:00'))
+            now = datetime.now()
+            
+            if check_time > now:
+                score *= 0.5  # Future timestamp
+            elif (now - check_time).days > 7:
+                score *= 0.8  # Old check-in
+                
+        except (ValueError, AttributeError):
+            score *= 0.7  # Invalid timestamp
+
+        return score
+
+    def _calculate_profile_uniqueness(self, health_data: Dict) -> float:
+        """Calculate uniqueness score for health profile."""
+        score = 0.5  # Base uniqueness score
+        
+        # Bonus for specific conditions and medications
+        if health_data.get('disease_states'):
+            score += 0.25
+        if health_data.get('medications'):
+            score += 0.25
+            
+        return score
 
 
 def fetch_random_number() -> float:
