@@ -9,3 +9,6 @@ demo/*
 .idea/
 
 .DS_Store
+
+# Ignore signing key
+enclave-key.pem

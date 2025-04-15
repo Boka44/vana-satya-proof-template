@@ -25,19 +25,28 @@ class Proof:
             self.proof_response.valid = False
             return self.proof_response
 
-        input_file = os.path.join(self.config['input_dir'], input_files[0])
-        with open(input_file, 'r') as f:
-            data = json.load(f)
+        # Debug: Print what files we see
+        logging.info(f"Found input files: {input_files}")
 
-        # Determine data type and process accordingly
-        if 'healthDataId' in data:  # Health Profile
-            return self._process_health_profile(data)
-        elif 'mood' in data:  # Daily Check-in
-            return self._process_daily_checkin(data)
-        else:
-            logging.error("Unknown data type")
-            self.proof_response.valid = False
-            return self.proof_response
+        for input_filename in input_files:
+            input_file = os.path.join(self.config['input_dir'], input_filename)
+            if not input_file.lower().endswith('.json'):
+                continue
+
+            with open(input_file, 'r') as f:
+                data = json.load(f)
+                logging.info(f"Processing file {input_filename}")
+
+                # Check for health profile
+                if 'healthDataId' in data:
+                    return self._process_health_profile(data)
+                # Check for check-in
+                elif 'mood' in data:
+                    return self._process_daily_checkin(data)
+
+        logging.error("No valid health profile or check-in data found")
+        self.proof_response.valid = False
+        return self.proof_response
 
     def _process_health_profile(self, health_data: Dict) -> ProofResponse:
         """Process health profile data."""
@@ -197,9 +206,10 @@ class Proof:
         score = 1.0
 
         try:
-            # Verify timestamp is reasonable (not in future, not too old)
+            # Convert timestamp to UTC datetime
             check_time = datetime.fromisoformat(checkin.get('timestamp').replace('Z', '+00:00'))
-            now = datetime.now()
+            # Make sure 'now' is also UTC
+            now = datetime.now().astimezone()
             
             if check_time > now:
                 score *= 0.5  # Future timestamp
