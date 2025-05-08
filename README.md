@@ -150,6 +150,18 @@ This template leverages several security features:
 
 Feel free to modify any part of this template to fit your specific needs. The goal is to provide a starting point that can be easily adapted to various proof tasks.
 
+## Testing
+
+Clean and rebuild
+```
+docker build -t my-proof .
+```
+
+Run test script
+```
+.\test_proofs.ps1
+```
+
 ## Contributing
 
 If you have suggestions for improving this template, please open an issue or submit a pull request.

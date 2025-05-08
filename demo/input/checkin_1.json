@@ -1,10 +1,14 @@
 {
     "user_hash": "abc123hash",
-    "is_pregnant": false,
     "timestamp": "2024-03-20T15:00:00Z",
     "mood": "good",
-    "health_comment": "Mild headache in the morning, took medication. Feeling better now.",
+    "health_comment": "Mild headache in the morning, managed with medication.",
     "doctor_visit": false,
-    "medication_update": false,
-    "diagnosis_update": false
+    "health_profile_update": false,
+    "anxiety_level": "moderate",
+    "anxiety_details": "Feeling slightly anxious about work deadline",
+    "pain_level": 3,
+    "pain_details": "Mild headache, responsive to medication",
+    "fatigue_level": 2,
+    "fatigue_details": "Slightly tired but manageable"
 }

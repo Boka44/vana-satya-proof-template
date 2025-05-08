@@ -3,29 +3,25 @@
     "healthDataId": "hdp_12345",
     "research_opt_in": true,
     "profile": {
-        "nickname": "JohnD",
         "age_range": "25-30",
         "ethnicity": "Asian",
         "location": "US-CA",
         "is_pregnant": false
     },
-    "disease_states": [
-        {
-            "condition_name": "Migraine",
-            "is_self_diagnosed": false,
-            "diagnosis_method": "Doctor",
-            "treatments": "Medication and rest",
-            "subtype": "Chronic migraine",
-            "first_symptom_date": "20-25",
-            "wants_future_studies": true
-        }
+    "conditions": [
+        "Migraine",
+        "Anxiety"
     ],
     "medications": [
-        {
-            "med_name": "Sumatriptan",
-            "verified": true,
-            "related_condition": "Migraine"
-        }
+        "Sumatriptan",
+        "Xanax"
+    ],  
+    "treatments": [
+        "Botox",
+        "CBT"
+    ],
+    "caretaker": [
+        "Kids"
     ],
     "timestamp": "2024-03-20T10:00:00Z"
 }
