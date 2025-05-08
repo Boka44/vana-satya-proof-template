@@ -6,5 +6,12 @@
     "health_comment": "No symptoms today",
     "doctor_visit": false,
     "medication_update": false,
-    "diagnosis_update": false
+    "diagnosis_update": false,
+    "anxiety_level": "low",
+    "anxiety_details": "Feeling calm and relaxed",
+    "pain_level": 0,
+    "pain_details": "No pain today",
+    "fatigue_level": 1,
+    "fatigue_details": "Well rested"
+    
 } 
